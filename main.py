@@ -79,15 +79,15 @@ class BasicCNN(nn.Module):
         x = torch.relu(self.c2(x))
         x = self.p2(x)
         x = torch.flatten(x)
-        x = torch.relu(self.L1(x))
-        x = torch.relu(self.L2(x))
-        x = torch.relu(self.L3(x))
+        x = torch.tanh(self.L1(x))
+        x = torch.tanh(self.L2(x))
+        x = torch.tanh(self.L3(x))
         x = torch.sigmoid(x)
 
         return x
 
 
-def train(train_loader:DataLoader, model:BasicCNN, optimizer=torch.optim.Adam, num_epochs=50, lr=1e-5):
+def train(train_loader:DataLoader, model:BasicCNN, optimizer=torch.optim.Adadelta, num_epochs=50, lr=1e-2):
     
     loss_function = nn.BCEWithLogitsLoss()
     optimizer = optimizer(model.parameters(), lr=lr) #Optimizer
@@ -108,6 +108,7 @@ def train(train_loader:DataLoader, model:BasicCNN, optimizer=torch.optim.Adam, n
 
             epoch_losses.append(loss.detach().cpu().numpy())
         print(np.mean(epoch_losses))
+        
         #if(save_model):
         #    model.save(filename=saved_model_filename)
 
@@ -125,8 +126,8 @@ print(dataset.__len__())
 
 train_set, test_set = random_split(dataset, [train_size, test_size])
 
-train_dataloader = DataLoader(dataset=train_set, batch_size=1, shuffle=True)
-test_dataloader = DataLoader(dataset=test_set, batch_size=1, shuffle=True)
+train_dataloader = DataLoader(dataset=train_set, batch_size=1, shuffle=False)
+test_dataloader = DataLoader(dataset=test_set, batch_size=1, shuffle=False)
 
 model = BasicCNN()
 
@@ -135,10 +136,19 @@ model = train(train_dataloader, model)
 sample = dataset.__getitem__(30)[0]
 print(model.forward(sample))
 
-sample = dataset.__getitem__(40)[0]
+sample = dataset.__getitem__(180)[0]
 print(model.forward(sample))
 
-sample = dataset.__getitem__(104)[0]
+sample = dataset.__getitem__(14)[0]
+print(model.forward(sample))
+
+sample = dataset.__getitem__(156)[0]
+print(model.forward(sample))
+
+sample = dataset.__getitem__(96)[0]
+print(model.forward(sample))
+
+sample = dataset.__getitem__(175)[0]
 print(model.forward(sample))
 
 dataset.showitem(50)
