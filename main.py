@@ -7,10 +7,13 @@ matplotlib.use('tkagg')
 import os
 from os import listdir
 from PIL import Image
+import time
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+
 
 def load_images(load_dir:str):
 
@@ -93,8 +96,8 @@ def train(train_loader:DataLoader, val_dataloader:DataLoader, model:BasicCNN, op
     optimizer = optimizer(model.parameters(), lr=lr) #Optimizer
 
     for epoch in tqdm(range(num_epochs)):
-        if(epoch%10==0):
-            validate(val_dataloader, model)
+        if(epoch%5==0):
+            validate(val_dataloader, model, epoch)
         epoch_losses = []
         for x, target in train_loader:
 
@@ -109,6 +112,7 @@ def train(train_loader:DataLoader, val_dataloader:DataLoader, model:BasicCNN, op
             optimizer.zero_grad()
 
             epoch_losses.append(loss.detach().cpu().numpy())
+        writer.add_scalar(tag="training/total_train_loss", scalar_value=loss, global_step=epoch)
         print(np.mean(epoch_losses))
         
         #if(save_model):
@@ -116,7 +120,7 @@ def train(train_loader:DataLoader, val_dataloader:DataLoader, model:BasicCNN, op
 
     return model
 
-def validate(val_dataloader, model:BasicCNN):
+def validate(val_dataloader, model:BasicCNN, epoch):
 
     p, n = 0, 0
 
@@ -125,21 +129,26 @@ def validate(val_dataloader, model:BasicCNN):
         target = target.to(torch.float32)
         output = model(torch.squeeze(x, 1))
 
-        if target==1 and output>0.5:
+        if target==1 and output>=0.5:
             p+=1
         if target==0 and output<0.5:
             p+=1
         if target==1 and output<0.5:
             n+=1
-        if target==0 and output>0.5:
+        if target==0 and output>=0.5:
             n+=1
 
     print("Accuracy: " + str(p/(p+n)))
+    writer.add_scalar(tag="training/validation_accuracy", scalar_value=p/(p+n), global_step=epoch)
 
 def predict(index, model:BasicCNN, dataset):
 
     sample = dataset.__getitem__(index)[0]
-    print(model.forward(sample))
+    out = model.forward(sample)
+    if out>=0.5:
+        print(1)
+    else:
+        print(0)
     #dataset.showitem(index)
 
 
@@ -161,6 +170,7 @@ val_dataloader = DataLoader(dataset=val_set, batch_size=1, shuffle=True)
 
 model = BasicCNN()
 
+writer = SummaryWriter(log_dir=os.path.join("Tensorboard", time.strftime("%Y%m%d-%H%M%S")))
 model = train(train_dataloader, val_dataloader, model)
 
 for i in range(200):
