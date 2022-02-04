@@ -87,18 +87,20 @@ class BasicCNN(nn.Module):
         return x
 
 
-def train(train_loader:DataLoader, model:BasicCNN, optimizer=torch.optim.Adadelta, num_epochs=50, lr=1e-2):
+def train(train_loader:DataLoader, val_dataloader:DataLoader, model:BasicCNN, optimizer=torch.optim.Adam, num_epochs=100, lr=1e-5):
     
-    loss_function = nn.BCEWithLogitsLoss()
+    loss_function = nn.BCELoss()
     optimizer = optimizer(model.parameters(), lr=lr) #Optimizer
 
     for epoch in tqdm(range(num_epochs)):
+        if(epoch%10==0):
+            validate(val_dataloader, model)
         epoch_losses = []
         for x, target in train_loader:
-            
+
             target = target.to(torch.float32)
             #x = x.to(device)
-            output = model(x[0])
+            output = model(torch.squeeze(x, 1))
 
             loss = loss_function(output, target)
             
@@ -114,41 +116,52 @@ def train(train_loader:DataLoader, model:BasicCNN, optimizer=torch.optim.Adadelt
 
     return model
 
+def validate(val_dataloader, model:BasicCNN):
+
+    p, n = 0, 0
+
+    for x, target in val_dataloader:
+
+        target = target.to(torch.float32)
+        output = model(torch.squeeze(x, 1))
+
+        if target==1 and output>0.5:
+            p+=1
+        if target==0 and output<0.5:
+            p+=1
+        if target==1 and output<0.5:
+            n+=1
+        if target==0 and output>0.5:
+            n+=1
+
+    print("Accuracy: " + str(p/(p+n)))
+
+def predict(index, model:BasicCNN, dataset):
+
+    sample = dataset.__getitem__(index)[0]
+    print(model.forward(sample))
+    #dataset.showitem(index)
+
+
 train_images, train_labels = load_images(load_dir="dogs-vs-cats/train_subset/")
 dataset = ImageDataset(train_images, train_labels)
 
 train_size = int(len(train_images) / 2)
-test_size = int(len(train_images) / 2)
-#val_size = int(len(train_images) / 4)
+test_size = int(len(train_images) / 4)
+val_size = int(len(train_images) / 4)
 
-print(train_size, test_size)
+print(train_size, test_size, val_size)
 print(dataset.__len__())
 
-train_set, test_set = random_split(dataset, [train_size, test_size])
+train_set, test_set, val_set = random_split(dataset, [train_size, test_size, val_size])
 
-train_dataloader = DataLoader(dataset=train_set, batch_size=1, shuffle=False)
-test_dataloader = DataLoader(dataset=test_set, batch_size=1, shuffle=False)
+train_dataloader = DataLoader(dataset=train_set, batch_size=1, shuffle=True)
+test_dataloader = DataLoader(dataset=test_set, batch_size=1, shuffle=True)
+val_dataloader = DataLoader(dataset=val_set, batch_size=1, shuffle=True)
 
 model = BasicCNN()
 
-model = train(train_dataloader, model)
+model = train(train_dataloader, val_dataloader, model)
 
-sample = dataset.__getitem__(30)[0]
-print(model.forward(sample))
-
-sample = dataset.__getitem__(180)[0]
-print(model.forward(sample))
-
-sample = dataset.__getitem__(14)[0]
-print(model.forward(sample))
-
-sample = dataset.__getitem__(156)[0]
-print(model.forward(sample))
-
-sample = dataset.__getitem__(96)[0]
-print(model.forward(sample))
-
-sample = dataset.__getitem__(175)[0]
-print(model.forward(sample))
-
-dataset.showitem(50)
+for i in range(200):
+    predict(i, model, dataset)
