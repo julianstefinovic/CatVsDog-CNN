@@ -74,6 +74,7 @@ class BasicCNN(nn.Module):
         self.L1 = nn.Linear(3920, 100) #100
         self.L2 = nn.Linear(100, 20) #20
         self.L3 = nn.Linear(20, 1) #1
+        self.best_acc = 0
 
     def forward(self, x):
 
@@ -137,9 +138,12 @@ def validate(val_dataloader, model:BasicCNN, epoch):
             n+=1
         if target==0 and output>=0.5:
             n+=1
-
-    print("Accuracy: " + str(p/(p+n)))
-    writer.add_scalar(tag="training/validation_accuracy", scalar_value=p/(p+n), global_step=epoch)
+    acc = p/(p+n)
+    if(acc > model.best_acc):
+        model.best_acc = acc
+        torch.save(model.state_dict(), os.path.join("best_models", start_time))
+    print("Accuracy: " + str(acc))
+    writer.add_scalar(tag="training/validation_accuracy", scalar_value=acc, global_step=epoch)
 
 def predict(index, model:BasicCNN, dataset):
 
@@ -170,8 +174,12 @@ val_dataloader = DataLoader(dataset=val_set, batch_size=1, shuffle=True)
 
 model = BasicCNN()
 
-writer = SummaryWriter(log_dir=os.path.join("Tensorboard", time.strftime("%Y%m%d-%H%M%S")))
+start_time = time.strftime("%Y%m%d-%H%M%S")
+
+writer = SummaryWriter(log_dir=os.path.join("Tensorboard", start_time))
 model = train(train_dataloader, val_dataloader, model)
 
-for i in range(200):
+for i in range(dataset.__len__):
     predict(i, model, dataset)
+
+#TODO: Tensor stacking for batch learning
