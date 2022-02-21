@@ -141,20 +141,23 @@ def validate(val_dataloader, model:BasicCNN, epoch):
     acc = p/(p+n)
     if(acc > model.best_acc):
         model.best_acc = acc
-        torch.save(model.state_dict(), os.path.join("best_models", start_time))
+        torch.save(model.state_dict(), os.path.join("best_models", start_time + "acc_" + str(acc)))
     print("Accuracy: " + str(acc))
     writer.add_scalar(tag="training/validation_accuracy", scalar_value=acc, global_step=epoch)
 
-def predict(index, model:BasicCNN, dataset):
+def predict(model:BasicCNN, tdl:DataLoader):
 
-    sample = dataset.__getitem__(index)[0]
-    out = model.forward(sample)
-    if out>=0.5:
-        print(1)
-    else:
-        print(0)
-    #dataset.showitem(index)
+    for idx, (sample, _) in enumerate(tdl):
+        out = model(torch.squeeze(sample, 1))
+        if out>=0.5:
+            print(idx+1, " cat")
+        else:
+            print(idx+1, " dog")
+        #dataset.showitem(index)
 
+
+if not os.path.exists("best_models"):
+    os.makedirs("best_models")
 
 train_images, train_labels = load_images(load_dir="dogs-vs-cats/train_subset/")
 dataset = ImageDataset(train_images, train_labels)
@@ -177,9 +180,20 @@ model = BasicCNN()
 start_time = time.strftime("%Y%m%d-%H%M%S")
 
 writer = SummaryWriter(log_dir=os.path.join("Tensorboard", start_time))
-model = train(train_dataloader, val_dataloader, model)
 
-for i in range(dataset.__len__):
-    predict(i, model, dataset)
+load_from_saved = True
+
+if not load_from_saved:
+    model = train(train_dataloader, val_dataloader, model)
+else:
+    model.load_state_dict(torch.load("best_models/20220221-020009acc_0.672"))
+
+test_dataset_images, test_dataset_labels = load_images(load_dir="dogs-vs-cats/test_subset/")
+test_dataset = ImageDataset(test_dataset_images, test_dataset_labels)
+
+test_dataset_dataloader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=False)
+
+print(test_dataset.__len__())
+predict(model, test_dataset_dataloader)
 
 #TODO: Tensor stacking for batch learning
